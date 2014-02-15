@@ -22,54 +22,65 @@ public class Creative extends JavaPlugin implements Listener {
         saveDefaultConfig();
         listener = new InteractionListener(this);
         Bukkit.getPluginManager().registerEvents(listener, this);
+        StorageApi.setMainPlugin(this);
         if (getConfig().getBoolean("SaveBlocks")) {
             Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
                 public void run() {
-                    listener.loadBlocks();
+                    if (getConfig().getBoolean("UseMysql")) {
+                        StorageApi.setMysqlDetails(getConfig().getString("MysqlUsername"),
+                                getConfig().getString("MysqlPassword"), getConfig().getString("MysqlHost"), getConfig()
+                                        .getString("MysqlDatabase"));
+                        StorageApi.loadBlocksFromMysql();
+                    } else {
+                        StorageApi.loadBlocksFromFlatfile();
+                    }
                 }
             }, 10);
         }
     }
 
-    public void onDisable() {
-        if (getConfig().getBoolean("SaveBlocks")) {
-            listener.saveBlocks();
-        }
-    }
-
     public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
-        if (sender.getName().equals("CONSOLE")) {
-            sender.sendMessage(ChatColor.RED + "Shove off console");
-            return true;
-        }
-        if (sender.hasPermission("limitcreative.clearlore")) {
-            String creativeMessage = ChatColor.translateAlternateColorCodes('&', getConfig().getString("ItemMessage")).replace(
-                    "%Name%", "");
-            ItemStack item = ((Player) sender).getItemInHand();
-            if (item != null && item.getType() != Material.AIR) {
-                boolean removed = false;
-                if (item.hasItemMeta() && item.getItemMeta().hasLore()) {
-                    ItemMeta meta = item.getItemMeta();
-                    Iterator<String> itel = meta.getLore().iterator();
-                    List<String> lore = new ArrayList<String>();
-                    while (itel.hasNext()) {
-                        String s = itel.next();
-                        if (s.startsWith(creativeMessage)) {
-                            removed = true;
-                        } else
-                            lore.add(s);
+        if (cmd.getName().equalsIgnoreCase("clearlore")) {
+            if (sender.getName().equals("CONSOLE")) {
+                sender.sendMessage(ChatColor.RED + "Shove off console");
+                return true;
+            }
+            if (sender.hasPermission("limitcreative.clearlore")) {
+                String creativeMessage = ChatColor.translateAlternateColorCodes('&', getConfig().getString("ItemMessage"))
+                        .replace("%Name%", "");
+                ItemStack item = ((Player) sender).getItemInHand();
+                if (item != null && item.getType() != Material.AIR) {
+                    boolean removed = false;
+                    if (item.hasItemMeta() && item.getItemMeta().hasLore()) {
+                        ItemMeta meta = item.getItemMeta();
+                        Iterator<String> itel = meta.getLore().iterator();
+                        List<String> lore = new ArrayList<String>();
+                        while (itel.hasNext()) {
+                            String s = itel.next();
+                            if (s.startsWith(creativeMessage)) {
+                                removed = true;
+                            } else
+                                lore.add(s);
+                        }
+                        meta.setLore(lore);
+                        item.setItemMeta(meta);
                     }
-                    meta.setLore(lore);
-                    item.setItemMeta(meta);
-                }
-                if (!removed)
-                    sender.sendMessage(ChatColor.RED + "Didn't find the creative message on the item!");
-                else
-                    sender.sendMessage(ChatColor.RED + "Removed the creative lore from the item!");
+                    if (!removed)
+                        sender.sendMessage(ChatColor.RED + "Didn't find the creative message on the item!");
+                    else
+                        sender.sendMessage(ChatColor.RED + "Removed the creative lore from the item!");
+                } else
+                    sender.sendMessage(ChatColor.RED + "You are not holding a item!");
             } else
-                sender.sendMessage(ChatColor.RED + "You are not holding a item!");
-        } else
-            sender.sendMessage(ChatColor.RED + "You do not have permission to use this command");
+                sender.sendMessage(ChatColor.RED + "You do not have permission to use this command");
+        } else if (cmd.getName().equalsIgnoreCase("limitcreativeconvert")) {
+            if (sender.hasPermission("limitcreative.convert")) {
+                sender.sendMessage(ChatColor.RED + "Now converting flatfile to mysql.. You may see lag");
+                StorageApi.loadBlocksFromFlatfile();
+                StorageApi.saveBlocksToMysql();
+                sender.sendMessage(ChatColor.RED + "Converted!");
+            }
+        }
         return true;
     }
 

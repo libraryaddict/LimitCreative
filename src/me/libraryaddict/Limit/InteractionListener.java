@@ -1,20 +1,16 @@
 package me.libraryaddict.Limit;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Furnace;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -44,54 +40,12 @@ public class InteractionListener implements Listener {
     private JavaPlugin plugin;
     private String creativeMessage;
     private List<String> disallowedWorlds;
-    private HashMap<Block, String> markedBlocks = new HashMap<Block, String>();
-
-    public void saveBlocks() {
-        File file = new File(plugin.getDataFolder(), "blocks.yml");
-        if (file.exists())
-            file.delete();
-        try {
-            file.createNewFile();
-            YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-            for (Block block : markedBlocks.keySet()) {
-                config.set(block.getWorld().getName() + "." + block.getX() + "." + block.getY() + "." + block.getZ(),
-                        markedBlocks.get(block));
-            }
-            config.save(file);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     @EventHandler
     public void onSmelt(FurnaceSmeltEvent event) {
         if (this.isCreativeItem(event.getSource())
                 || isCreativeItem(((Furnace) event.getBlock().getState()).getInventory().getFuel())) {
             event.setCancelled(true);
-        }
-    }
-
-    public void loadBlocks() {
-        File file = new File(plugin.getDataFolder(), "blocks.yml");
-        if (file.exists()) {
-            try {
-                YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-                for (String worldName : config.getKeys(false)) {
-                    World world = Bukkit.getWorld(worldName);
-                    if (world != null) {
-                        for (String x : config.getConfigurationSection(worldName).getKeys(false)) {
-                            for (String y : config.getConfigurationSection(worldName + "." + x).getKeys(false)) {
-                                for (String z : config.getConfigurationSection(worldName + "." + x + "." + y).getKeys(false)) {
-                                    Block block = world.getBlockAt(Integer.parseInt(x), Integer.parseInt(y), Integer.parseInt(z));
-                                    markedBlocks.put(block, config.getString(worldName + "." + x + "." + y + "." + z));
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
         }
     }
 
@@ -114,7 +68,7 @@ public class InteractionListener implements Listener {
             return;
         if (getConfig().getBoolean("MarkBlocks")
                 && (isCreativeItem(event.getItemInHand()) || event.getPlayer().getGameMode() == GameMode.CREATIVE)) {
-            markedBlocks.put(event.getBlockPlaced(), getCreativeString(event.getItemInHand()));
+            StorageApi.markBlock(event.getBlockPlaced(), getCreativeString(event.getItemInHand()));
         }
     }
 
@@ -123,7 +77,7 @@ public class InteractionListener implements Listener {
         if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
             return;
         for (Block block : event.getBlocks()) {
-            if (markedBlocks.containsKey(block)) {
+            if (StorageApi.isMarked(block)) {
                 event.setCancelled(true);
                 return;
             }
@@ -136,7 +90,7 @@ public class InteractionListener implements Listener {
             return;
         if (event.isSticky()) {
             Block block = event.getBlock().getRelative(event.getDirection()).getRelative(event.getDirection());
-            if (markedBlocks.containsKey(block)) {
+            if (StorageApi.isMarked(block)) {
                 event.setCancelled(true);
             }
         }
@@ -147,8 +101,8 @@ public class InteractionListener implements Listener {
         if (disallowedWorlds.contains(event.getLocation().getWorld().getName()))
             return;
         for (Block block : event.blockList()) {
-            if (markedBlocks.containsKey(block)) {
-                String message = markedBlocks.remove(block);
+            if (StorageApi.isMarked(block)) {
+                String message = StorageApi.unmarkBlock(block);
                 for (ItemStack item : block.getDrops()) {
                     ItemMeta meta = item.getItemMeta();
                     List<String> lore = new ArrayList<String>();
@@ -168,8 +122,8 @@ public class InteractionListener implements Listener {
     public void onBreak(BlockBreakEvent event) {
         if (event.isCancelled() || disallowedWorlds.contains(event.getBlock().getWorld().getName()))
             return;
-        if (markedBlocks.containsKey(event.getBlock())) {
-            String message = markedBlocks.remove(event.getBlock());
+        if (StorageApi.isMarked(event.getBlock())) {
+            String message = StorageApi.unmarkBlock(event.getBlock());
             if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
                 event.setExpToDrop(0);
                 Collection<ItemStack> drops = event.getBlock().getDrops(event.getPlayer().getItemInHand());

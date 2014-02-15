@@ -28,3 +28,11 @@ WorldsDisabled:
   
 # Does the plugin save the marked blocks into a config? Overtime this may get.. laggy.
 SaveBlocks: true
+
+# Turn this to true if you wish to use mysql for the saveblocks. Else it will default to flatfile.
+UseMysql: false
+# You will need to enter your mysql details here.
+MysqlHost: www.mydatabase.com
+MysqlUsername: root
+MysqlPassword: ilovecows
+MysqlDatabase: database
