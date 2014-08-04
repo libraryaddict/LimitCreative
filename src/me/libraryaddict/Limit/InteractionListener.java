@@ -13,6 +13,7 @@ import org.bukkit.block.Furnace;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.HumanEntity;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -21,10 +22,13 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.FurnaceSmeltEvent;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCreativeEvent;
 import org.bukkit.event.inventory.InventoryType;
@@ -60,6 +64,13 @@ public class InteractionListener implements Listener {
                 && ((Player) entity).getGameMode() != GameMode.CREATIVE && isCreativeItem(((Player) entity).getItemInHand()))
             return true;
         return false;
+    }
+
+    @EventHandler
+    public void onEnchant(PrepareItemEnchantEvent event) {
+        if (this.isCreativeItem(event.getItem()) && event.getEnchanter().getGameMode() != GameMode.CREATIVE) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -260,9 +271,36 @@ public class InteractionListener implements Listener {
             return;
         if (checkEntity(event.getPlayer()))
             event.setCancelled(true);
+        if (event.getPlayer().getGameMode() == GameMode.CREATIVE && event.getRightClicked() instanceof ItemFrame) {
+            ItemStack item = event.getPlayer().getItemInHand();
+            if (item != null && item.getType() != Material.AIR && !isCreativeItem(item)) {
+                ItemFrame frame = (ItemFrame) event.getRightClicked();
+                if (frame.getItem() == null || frame.getItem().getType() == Material.AIR) {
+                    event.getPlayer().setItemInHand(setCreativeItem(event.getPlayer().getName(), item));
+                }
+            }
+        }
     }
 
     @EventHandler
+    public void onBrew(BrewEvent event) {
+        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+            return;
+        if (isCreativeItem(event.getContents().getIngredient())) {
+            List<String> lore = event.getContents().getIngredient().getItemMeta().getLore();
+            ItemStack[] items = event.getContents().getContents();
+            for (int i = 0; i < items.length; i++) {
+                if (items[i] != null && items[i].getItemMeta() != null) {
+                    ItemMeta meta = items[i].getItemMeta();
+                    meta.setLore(lore);
+                    items[i].setItemMeta(meta);
+                }
+            }
+            event.getContents().setContents(items);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryClick(InventoryClickEvent event) {
         if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName()))
             return;
@@ -270,6 +308,16 @@ public class InteractionListener implements Listener {
                 && isCreativeItem(event.getCurrentItem())) {
             if (getConfig().getBoolean("PreventAnvil"))
                 event.setCancelled(true);
+        }
+        if (event.getWhoClicked().getGameMode() == GameMode.CREATIVE && event.getAction() == InventoryAction.CLONE_STACK
+                && !isCreativeItem(event.getCurrentItem())) {
+            ItemStack item = event.getCurrentItem();
+            if (item != null && item.getType() != Material.AIR) {
+                item = setCreativeItem(event.getWhoClicked().getName(), event.getCurrentItem().clone());
+                item.setAmount(item.getMaxStackSize());
+                event.getWhoClicked().setItemOnCursor(item);
+                event.setCancelled(true);
+            }
         }
     }
 
