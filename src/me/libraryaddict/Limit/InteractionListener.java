@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
+import net.minecraft.util.com.google.common.base.Objects;
+
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -31,30 +33,41 @@ import org.bukkit.event.inventory.FurnaceSmeltEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCreativeEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class InteractionListener implements Listener {
-    private String creativeMessage;
-    private List<String> disallowedWorlds;
-    private JavaPlugin plugin;
+    private final String creativeMessage;
+    private final List<String> disallowedItems;
+    private final List<String> disallowedWorlds;
+    private final JavaPlugin plugin;
 
     public InteractionListener(JavaPlugin plugin) {
         this.plugin = plugin;
         creativeMessage = ChatColor.translateAlternateColorCodes('&', getConfig().getString("ItemMessage"));
         disallowedWorlds = getConfig().getStringList("WorldsDisabled");
+        disallowedItems = getConfig().getStringList("DisabledItems");
+
+        for (String item : disallowedItems) {
+            disallowedItems.remove(item);
+            disallowedItems.add(item.toUpperCase());
+        }
     }
 
     private boolean checkEntity(Entity entity) {
         if (getConfig().getBoolean("PreventUsage") && entity != null && entity instanceof Player
-                && ((Player) entity).getGameMode() != GameMode.CREATIVE && isCreativeItem(((Player) entity).getItemInHand()))
+                && ((Player) entity).getGameMode() != GameMode.CREATIVE && isCreativeItem(((Player) entity).getItemInHand())) {
             return true;
+        }
         return false;
     }
 
@@ -67,8 +80,9 @@ public class InteractionListener implements Listener {
             ItemMeta meta = item.getItemMeta();
             if (meta.hasLore()) {
                 for (String s : meta.getLore()) {
-                    if (s.startsWith(creativeMessage.replace("%Name%", "")))
+                    if (s.startsWith(creativeMessage.replace("%Name%", ""))) {
                         return s;
+                    }
                 }
             }
         }
@@ -80,8 +94,9 @@ public class InteractionListener implements Listener {
             ItemMeta meta = item.getItemMeta();
             if (meta.hasLore()) {
                 for (String s : meta.getLore()) {
-                    if (s.startsWith(creativeMessage.replace("%Name%", "")))
+                    if (s.startsWith(creativeMessage.replace("%Name%", ""))) {
                         return true;
+                    }
                 }
             }
         }
@@ -90,16 +105,19 @@ public class InteractionListener implements Listener {
 
     @EventHandler
     public void onAttack(EntityDamageByEntityEvent event) {
-        if (disallowedWorlds.contains(event.getEntity().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getEntity().getWorld().getName())) {
             return;
-        if (checkEntity(event.getDamager()))
+        }
+        if (checkEntity(event.getDamager())) {
             event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onBlockPlace(BlockPlaceEvent event) {
-        if (event.isCancelled() || disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+        if (event.isCancelled() || disallowedWorlds.contains(event.getBlock().getWorld().getName())) {
             return;
+        }
         if (getConfig().getBoolean("MarkBlocks")
                 && (isCreativeItem(event.getItemInHand()) || event.getPlayer().getGameMode() == GameMode.CREATIVE)) {
             StorageApi.markBlock(event.getBlockPlaced(), getCreativeString(event.getItemInHand()));
@@ -108,8 +126,15 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onBreak(BlockBreakEvent event) {
-        if (event.isCancelled() || disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+        if (event.isCancelled() || disallowedWorlds.contains(event.getBlock().getWorld().getName())) {
             return;
+        }
+
+        if (isCreativeItem(event.getPlayer().getItemInHand()) && event.getPlayer().getGameMode() == GameMode.SURVIVAL) {
+            event.setCancelled(true);
+            event.setExpToDrop(0);
+        }
+
         if (StorageApi.isMarked(event.getBlock())) {
             String message = StorageApi.unmarkBlock(event.getBlock());
             if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
@@ -118,8 +143,9 @@ public class InteractionListener implements Listener {
                 for (ItemStack item : drops) {
                     ItemMeta meta = item.getItemMeta();
                     List<String> lore = new ArrayList<String>();
-                    if (meta.hasLore())
+                    if (meta.hasLore()) {
                         lore = meta.getLore();
+                    }
                     lore.add(0, message);
                     meta.setLore(lore);
                     item.setItemMeta(meta);
@@ -132,8 +158,9 @@ public class InteractionListener implements Listener {
 
     @EventHandler
     public void onBrew(BrewEvent event) {
-        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getBlock().getWorld().getName())) {
             return;
+        }
         if (isCreativeItem(event.getContents().getIngredient())) {
             List<String> lore = event.getContents().getIngredient().getItemMeta().getLore();
             ItemStack[] items = event.getContents().getContents();
@@ -150,14 +177,16 @@ public class InteractionListener implements Listener {
 
     @EventHandler
     public void onCraft(PrepareItemCraftEvent event) {
-        if (event.getViewers().isEmpty() || disallowedWorlds.contains(event.getViewers().get(0).getWorld().getName()))
+        if (event.getViewers().isEmpty() || disallowedWorlds.contains(event.getViewers().get(0).getWorld().getName())) {
             return;
+        }
         for (ItemStack item : event.getInventory().getMatrix()) {
             if (isCreativeItem(item)) {
                 if (event.getViewers().get(0).getGameMode() != GameMode.CREATIVE && getConfig().getBoolean("PreventCrafting")) {
                     event.getInventory().setItem(0, new ItemStack(0, 0));
-                } else if (getConfig().getBoolean("RenameCrafting"))
+                } else if (getConfig().getBoolean("RenameCrafting")) {
                     setCreativeItem(event.getViewers().get(0).getName(), event.getInventory().getItem(0));
+                }
                 break;
             }
         }
@@ -165,22 +194,35 @@ public class InteractionListener implements Listener {
 
     @EventHandler
     public void onCreativeClick(InventoryCreativeEvent event) {
-        if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName())) {
             return;
+        }
+
         event.setCursor(setCreativeItem(event.getWhoClicked().getName(), event.getCursor()));
+
+        if (disallowedItems.contains(event.getCursor().getType().toString())) {
+            if (!event.getWhoClicked().hasPermission("limitcreative.useblacklistItems")) {
+
+                event.setCancelled(true);
+                if (event.getWhoClicked() instanceof Player) {
+                    ((Player) event.getWhoClicked()).sendMessage(ChatColor.RED + "You are not allowed to use this item!");
+                }
+            }
+        }
     }
 
     @EventHandler
     public void onDamage(EntityDamageEvent event) {
-        if (disallowedWorlds.contains(event.getEntity().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getEntity().getWorld().getName())) {
             return;
+        }
         if (getConfig().getBoolean("PreventArmor")) {
             if (event.getEntity() instanceof Player && ((Player) event.getEntity()).getGameMode() != GameMode.CREATIVE) {
                 ItemStack[] items = ((Player) event.getEntity()).getInventory().getArmorContents();
                 for (int i = 0; i < 4; i++) {
                     ItemStack item = items[i];
                     if (isCreativeItem(item)) {
-                        items[i] = new ItemStack(0);
+                        items[i] = new ItemStack(Material.AIR);
                         HashMap<Integer, ItemStack> leftovers = ((Player) event.getEntity()).getInventory().addItem(item);
                         for (ItemStack leftoverItem : leftovers.values()) {
                             ((Player) event.getEntity()).getWorld().dropItem(((Player) event.getEntity()).getEyeLocation(),
@@ -202,16 +244,18 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onExplode(EntityExplodeEvent event) {
-        if (disallowedWorlds.contains(event.getLocation().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getLocation().getWorld().getName())) {
             return;
+        }
         for (Block block : event.blockList()) {
             if (StorageApi.isMarked(block)) {
                 String message = StorageApi.unmarkBlock(block);
                 for (ItemStack item : block.getDrops()) {
                     ItemMeta meta = item.getItemMeta();
                     List<String> lore = new ArrayList<String>();
-                    if (meta.hasLore())
+                    if (meta.hasLore()) {
                         lore = meta.getLore();
+                    }
                     lore.add(0, message);
                     meta.setLore(lore);
                     item.setItemMeta(meta);
@@ -224,8 +268,9 @@ public class InteractionListener implements Listener {
 
     @EventHandler
     public void onGameModeSwitch(PlayerGameModeChangeEvent event) {
-        if (disallowedWorlds.contains(event.getPlayer().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getPlayer().getWorld().getName())) {
             return;
+        }
         if (getConfig().getBoolean("PreventArmor") && event.getPlayer().getGameMode() == GameMode.CREATIVE
                 && event.getNewGameMode() != GameMode.CREATIVE) {
             ItemStack[] items = event.getPlayer().getInventory().getArmorContents();
@@ -245,18 +290,22 @@ public class InteractionListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (disallowedWorlds.contains(event.getPlayer().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getPlayer().getWorld().getName())) {
             return;
-        if (checkEntity(event.getPlayer()))
+        }
+        if (checkEntity(event.getPlayer())) {
             event.setCancelled(true);
+        }
     }
 
     @EventHandler
     public void onInteractEntity(PlayerInteractEntityEvent event) {
-        if (disallowedWorlds.contains(event.getPlayer().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getPlayer().getWorld().getName())) {
             return;
-        if (checkEntity(event.getPlayer()))
+        }
+        if (checkEntity(event.getPlayer())) {
             event.setCancelled(true);
+        }
         if (event.getPlayer().getGameMode() == GameMode.CREATIVE && event.getRightClicked() instanceof ItemFrame) {
             ItemStack item = event.getPlayer().getItemInHand();
             if (item != null && item.getType() != Material.AIR && !isCreativeItem(item)) {
@@ -270,12 +319,14 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryClick(InventoryClickEvent event) {
-        if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName())) {
             return;
+        }
         if (event.getWhoClicked().getGameMode() != GameMode.CREATIVE && event.getInventory().getType() == InventoryType.ANVIL
                 && isCreativeItem(event.getCurrentItem())) {
-            if (getConfig().getBoolean("PreventAnvil"))
+            if (getConfig().getBoolean("PreventAnvil")) {
                 event.setCancelled(true);
+            }
         }
         if (event.getWhoClicked().getGameMode() == GameMode.CREATIVE && event.getAction() == InventoryAction.CLONE_STACK
                 && !isCreativeItem(event.getCurrentItem())) {
@@ -287,12 +338,63 @@ public class InteractionListener implements Listener {
                 event.setCancelled(true);
             }
         }
+
+        if (!event.getWhoClicked().hasPermission("limitcreative.itemtransfer")) {
+            Inventory top = event.getView().getTopInventory();
+            Inventory bottom = event.getView().getBottomInventory();
+
+            if (!Objects.equal(top, bottom)) {
+                if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR) {
+                    if (isCreativeItem(event.getCurrentItem())) {
+                        event.setCancelled(true);
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onInventoryDragEvent(InventoryDragEvent event) {
+        if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName())) {
+            return;
+        }
+
+        if (!event.getWhoClicked().hasPermission("limitcreative.itemtransfer")) {
+            Inventory top = event.getView().getTopInventory();
+            Inventory bottom = event.getView().getBottomInventory();
+
+            if (!Objects.equal(top, bottom)) {
+                if (event.getOldCursor() != null && event.getOldCursor().getType() != Material.AIR) {
+                    if (isCreativeItem(event.getOldCursor())) {
+                        event.setCancelled(true);
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerPickupItem(PlayerPickupItemEvent event) {
+        if (disallowedWorlds.contains(event.getPlayer().getWorld().getName())) {
+            return;
+        }
+        if (!event.getPlayer().hasPermission("limitcreative.pickupcreativeitem")) {
+            if (event.getPlayer().getGameMode() != GameMode.CREATIVE && isCreativeItem(event.getItem().getItemStack())) {
+                event.setCancelled(true);
+            }
+        }
+        if (!event.getPlayer().hasPermission("limitcreative.pickupsurvivalitem")) {
+            if (event.getPlayer().getGameMode() == GameMode.CREATIVE && !isCreativeItem(event.getItem().getItemStack())) {
+                event.setCancelled(true);
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPush(BlockPistonExtendEvent event) {
-        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getBlock().getWorld().getName())) {
             return;
+        }
         for (Block block : event.getBlocks()) {
             if (StorageApi.isMarked(block)) {
                 event.setCancelled(true);
@@ -303,8 +405,9 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onRetract(BlockPistonRetractEvent event) {
-        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+        if (disallowedWorlds.contains(event.getBlock().getWorld().getName())) {
             return;
+        }
         if (event.isSticky()) {
             Block block = event.getBlock().getRelative(event.getDirection()).getRelative(event.getDirection());
             if (StorageApi.isMarked(block)) {
@@ -326,8 +429,9 @@ public class InteractionListener implements Listener {
             if (!isCreativeItem(item)) {
                 ItemMeta meta = item.getItemMeta();
                 List<String> lore = new ArrayList<String>();
-                if (meta.hasLore())
+                if (meta.hasLore()) {
                     lore = meta.getLore();
+                }
                 lore.add(0, creativeMessage.replace("%Name%", who));
                 meta.setLore(lore);
                 item.setItemMeta(meta);

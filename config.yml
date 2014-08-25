@@ -26,6 +26,10 @@ WorldsDisabled:
   - creativebuild
   - creativeplay
   
+# With block/items will be disabled when in creative limited mode?
+# Don't use ID's, only full NAME of item. Names can be found at http://jd.bukkit.org/rb/apidocs/org/bukkit/Material.html
+DisabledItems: []
+  
 # Does the plugin save the marked blocks into a config? Overtime this may get.. laggy.
 SaveBlocks: true
 
