@@ -40,3 +40,10 @@ MysqlHost: www.mydatabase.com
 MysqlUsername: root
 MysqlPassword: ilovecows
 MysqlDatabase: database
+
+# Does the plugin prevent creative items being transfered through inventories?
+# Does it prevent creative items being dropped?
+# Does it prevent creative items being picked up by non-creative players?
+# Does it prevent non-creative items being picked up by creative?
+# Does it delete all creative items dropped?
+# Does it delete all non-creative items dropped? (Doesn't include entities such as exp orbs, fired arrows, etc. Just items)

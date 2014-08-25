@@ -201,7 +201,7 @@ public class InteractionListener implements Listener {
         event.setCursor(setCreativeItem(event.getWhoClicked().getName(), event.getCursor()));
 
         if (disallowedItems.contains(event.getCursor().getType().toString())) {
-            if (!event.getWhoClicked().hasPermission("limitcreative.useblacklistItems")) {
+            if (!event.getWhoClicked().hasPermission("limitcreative.useblacklistitems")) {
 
                 event.setCancelled(true);
                 if (event.getWhoClicked() instanceof Player) {
