@@ -41,17 +41,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class InteractionListener implements Listener {
-    private JavaPlugin plugin;
     private String creativeMessage;
     private List<String> disallowedWorlds;
-
-    @EventHandler
-    public void onSmelt(FurnaceSmeltEvent event) {
-        if (this.isCreativeItem(event.getSource())
-                || isCreativeItem(((Furnace) event.getBlock().getState()).getInventory().getFuel())) {
-            event.setCancelled(true);
-        }
-    }
+    private JavaPlugin plugin;
 
     public InteractionListener(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -66,11 +58,42 @@ public class InteractionListener implements Listener {
         return false;
     }
 
-    @EventHandler
-    public void onEnchant(PrepareItemEnchantEvent event) {
-        if (this.isCreativeItem(event.getItem()) && event.getEnchanter().getGameMode() != GameMode.CREATIVE) {
-            event.setCancelled(true);
+    private FileConfiguration getConfig() {
+        return plugin.getConfig();
+    }
+
+    private String getCreativeString(ItemStack item) {
+        if (item != null && item.hasItemMeta()) {
+            ItemMeta meta = item.getItemMeta();
+            if (meta.hasLore()) {
+                for (String s : meta.getLore()) {
+                    if (s.startsWith(creativeMessage.replace("%Name%", "")))
+                        return s;
+                }
+            }
         }
+        return null;
+    }
+
+    private boolean isCreativeItem(ItemStack item) {
+        if (item != null && item.hasItemMeta()) {
+            ItemMeta meta = item.getItemMeta();
+            if (meta.hasLore()) {
+                for (String s : meta.getLore()) {
+                    if (s.startsWith(creativeMessage.replace("%Name%", "")))
+                        return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @EventHandler
+    public void onAttack(EntityDamageByEntityEvent event) {
+        if (disallowedWorlds.contains(event.getEntity().getWorld().getName()))
+            return;
+        if (checkEntity(event.getDamager()))
+            event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -80,52 +103,6 @@ public class InteractionListener implements Listener {
         if (getConfig().getBoolean("MarkBlocks")
                 && (isCreativeItem(event.getItemInHand()) || event.getPlayer().getGameMode() == GameMode.CREATIVE)) {
             StorageApi.markBlock(event.getBlockPlaced(), getCreativeString(event.getItemInHand()));
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPush(BlockPistonExtendEvent event) {
-        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
-            return;
-        for (Block block : event.getBlocks()) {
-            if (StorageApi.isMarked(block)) {
-                event.setCancelled(true);
-                return;
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onRetract(BlockPistonRetractEvent event) {
-        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
-            return;
-        if (event.isSticky()) {
-            Block block = event.getBlock().getRelative(event.getDirection()).getRelative(event.getDirection());
-            if (StorageApi.isMarked(block)) {
-                event.setCancelled(true);
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onExplode(EntityExplodeEvent event) {
-        if (disallowedWorlds.contains(event.getLocation().getWorld().getName()))
-            return;
-        for (Block block : event.blockList()) {
-            if (StorageApi.isMarked(block)) {
-                String message = StorageApi.unmarkBlock(block);
-                for (ItemStack item : block.getDrops()) {
-                    ItemMeta meta = item.getItemMeta();
-                    List<String> lore = new ArrayList<String>();
-                    if (meta.hasLore())
-                        lore = meta.getLore();
-                    lore.add(0, message);
-                    meta.setLore(lore);
-                    item.setItemMeta(meta);
-                    block.getWorld().dropItemNaturally(block.getLocation().clone().add(0.5, 0, 0.5), item);
-                }
-                block.setType(Material.AIR);
-            }
         }
     }
 
@@ -153,42 +130,44 @@ public class InteractionListener implements Listener {
         }
     }
 
-    private FileConfiguration getConfig() {
-        return plugin.getConfig();
-    }
-
-    private boolean isCreativeItem(ItemStack item) {
-        if (item != null && item.hasItemMeta()) {
-            ItemMeta meta = item.getItemMeta();
-            if (meta.hasLore()) {
-                for (String s : meta.getLore()) {
-                    if (s.startsWith(creativeMessage.replace("%Name%", "")))
-                        return true;
+    @EventHandler
+    public void onBrew(BrewEvent event) {
+        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+            return;
+        if (isCreativeItem(event.getContents().getIngredient())) {
+            List<String> lore = event.getContents().getIngredient().getItemMeta().getLore();
+            ItemStack[] items = event.getContents().getContents();
+            for (int i = 0; i < items.length; i++) {
+                if (items[i] != null && items[i].getItemMeta() != null) {
+                    ItemMeta meta = items[i].getItemMeta();
+                    meta.setLore(lore);
+                    items[i].setItemMeta(meta);
                 }
             }
+            event.getContents().setContents(items);
         }
-        return false;
-    }
-
-    private String getCreativeString(ItemStack item) {
-        if (item != null && item.hasItemMeta()) {
-            ItemMeta meta = item.getItemMeta();
-            if (meta.hasLore()) {
-                for (String s : meta.getLore()) {
-                    if (s.startsWith(creativeMessage.replace("%Name%", "")))
-                        return s;
-                }
-            }
-        }
-        return null;
     }
 
     @EventHandler
-    public void onAttack(EntityDamageByEntityEvent event) {
-        if (disallowedWorlds.contains(event.getEntity().getWorld().getName()))
+    public void onCraft(PrepareItemCraftEvent event) {
+        if (event.getViewers().isEmpty() || disallowedWorlds.contains(event.getViewers().get(0).getWorld().getName()))
             return;
-        if (checkEntity(event.getDamager()))
-            event.setCancelled(true);
+        for (ItemStack item : event.getInventory().getMatrix()) {
+            if (isCreativeItem(item)) {
+                if (event.getViewers().get(0).getGameMode() != GameMode.CREATIVE && getConfig().getBoolean("PreventCrafting")) {
+                    event.getInventory().setItem(0, new ItemStack(0, 0));
+                } else if (getConfig().getBoolean("RenameCrafting"))
+                    setCreativeItem(event.getViewers().get(0).getName(), event.getInventory().getItem(0));
+                break;
+            }
+        }
+    }
+
+    @EventHandler
+    public void onCreativeClick(InventoryCreativeEvent event) {
+        if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName()))
+            return;
+        event.setCursor(setCreativeItem(event.getWhoClicked().getName(), event.getCursor()));
     }
 
     @EventHandler
@@ -215,25 +194,32 @@ public class InteractionListener implements Listener {
     }
 
     @EventHandler
-    public void onCraft(PrepareItemCraftEvent event) {
-        if (event.getViewers().isEmpty() || disallowedWorlds.contains(event.getViewers().get(0).getWorld().getName()))
-            return;
-        for (ItemStack item : event.getInventory().getMatrix()) {
-            if (isCreativeItem(item)) {
-                if (event.getViewers().get(0).getGameMode() != GameMode.CREATIVE && getConfig().getBoolean("PreventCrafting")) {
-                    event.getInventory().setItem(0, new ItemStack(0, 0));
-                } else if (getConfig().getBoolean("RenameCrafting"))
-                    setCreativeItem(event.getViewers().get(0).getName(), event.getInventory().getItem(0));
-                break;
-            }
+    public void onEnchant(PrepareItemEnchantEvent event) {
+        if (this.isCreativeItem(event.getItem()) && event.getEnchanter().getGameMode() != GameMode.CREATIVE) {
+            event.setCancelled(true);
         }
     }
 
-    @EventHandler
-    public void onCreativeClick(InventoryCreativeEvent event) {
-        if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName()))
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onExplode(EntityExplodeEvent event) {
+        if (disallowedWorlds.contains(event.getLocation().getWorld().getName()))
             return;
-        event.setCursor(setCreativeItem(event.getWhoClicked().getName(), event.getCursor()));
+        for (Block block : event.blockList()) {
+            if (StorageApi.isMarked(block)) {
+                String message = StorageApi.unmarkBlock(block);
+                for (ItemStack item : block.getDrops()) {
+                    ItemMeta meta = item.getItemMeta();
+                    List<String> lore = new ArrayList<String>();
+                    if (meta.hasLore())
+                        lore = meta.getLore();
+                    lore.add(0, message);
+                    meta.setLore(lore);
+                    item.setItemMeta(meta);
+                    block.getWorld().dropItemNaturally(block.getLocation().clone().add(0.5, 0, 0.5), item);
+                }
+                block.setType(Material.AIR);
+            }
+        }
     }
 
     @EventHandler
@@ -282,24 +268,6 @@ public class InteractionListener implements Listener {
         }
     }
 
-    @EventHandler
-    public void onBrew(BrewEvent event) {
-        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
-            return;
-        if (isCreativeItem(event.getContents().getIngredient())) {
-            List<String> lore = event.getContents().getIngredient().getItemMeta().getLore();
-            ItemStack[] items = event.getContents().getContents();
-            for (int i = 0; i < items.length; i++) {
-                if (items[i] != null && items[i].getItemMeta() != null) {
-                    ItemMeta meta = items[i].getItemMeta();
-                    meta.setLore(lore);
-                    items[i].setItemMeta(meta);
-                }
-            }
-            event.getContents().setContents(items);
-        }
-    }
-
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryClick(InventoryClickEvent event) {
         if (disallowedWorlds.contains(event.getWhoClicked().getWorld().getName()))
@@ -318,6 +286,38 @@ public class InteractionListener implements Listener {
                 event.getWhoClicked().setItemOnCursor(item);
                 event.setCancelled(true);
             }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPush(BlockPistonExtendEvent event) {
+        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+            return;
+        for (Block block : event.getBlocks()) {
+            if (StorageApi.isMarked(block)) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onRetract(BlockPistonRetractEvent event) {
+        if (disallowedWorlds.contains(event.getBlock().getWorld().getName()))
+            return;
+        if (event.isSticky()) {
+            Block block = event.getBlock().getRelative(event.getDirection()).getRelative(event.getDirection());
+            if (StorageApi.isMarked(block)) {
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onSmelt(FurnaceSmeltEvent event) {
+        if (this.isCreativeItem(event.getSource())
+                || isCreativeItem(((Furnace) event.getBlock().getState()).getInventory().getFuel())) {
+            event.setCancelled(true);
         }
     }
 

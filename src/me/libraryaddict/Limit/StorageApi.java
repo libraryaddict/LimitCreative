@@ -17,23 +17,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class StorageApi {
 
-    private static HashMap<String, HashMap<Loc, String>> markedBlocks = new HashMap<String, HashMap<Loc, String>>();
-    private static JavaPlugin mainPlugin;
     private static Connection connection;
-    private static boolean useMysql;
+    private static JavaPlugin mainPlugin;
+    private static HashMap<String, HashMap<Loc, String>> markedBlocks = new HashMap<String, HashMap<Loc, String>>();
     private static String mysqlDatabase, mysqlUsername, mysqlPassword, mysqlHost;
-
-    public static void setMainPlugin(JavaPlugin plugin) {
-        mainPlugin = plugin;
-    }
-
-    public static void setMysqlDetails(String sqlUsername, String sqlPassword, String sqlHost, String sqlDatabase) {
-        useMysql = true;
-        mysqlDatabase = sqlDatabase;
-        mysqlUsername = sqlUsername;
-        mysqlHost = sqlHost;
-        mysqlPassword = sqlPassword;
-    }
+    private static boolean useMysql;
 
     private static Connection connectMysql() {
         try {
@@ -45,14 +33,6 @@ public class StorageApi {
                     + ex.getMessage());
         }
         return null;
-    }
-
-    public static void saveBlocksToMysql() {
-        for (String world : markedBlocks.keySet()) {
-            for (Loc loc : markedBlocks.get(world).keySet()) {
-                markBlock(world, loc, markedBlocks.get(world).get(loc));
-            }
-        }
     }
 
     private static Connection getConnection() {
@@ -78,6 +58,61 @@ public class StorageApi {
             ex.printStackTrace();
         }
         return connection;
+    }
+
+    public static boolean isMarked(Block block) {
+        return markedBlocks.containsKey(block.getWorld().getName())
+                && markedBlocks.get(block.getWorld().getName()).containsKey(new Loc(block));
+    }
+
+    public static void loadBlocksFromFlatfile() {
+        File file = new File(mainPlugin.getDataFolder(), "blocks.yml");
+        if (file.exists()) {
+            try {
+                YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
+                for (String worldName : config.getKeys(false)) {
+                    World world = Bukkit.getWorld(worldName);
+                    if (world != null) {
+                        for (String x : config.getConfigurationSection(worldName).getKeys(false)) {
+                            for (String y : config.getConfigurationSection(worldName + "." + x).getKeys(false)) {
+                                for (String z : config.getConfigurationSection(worldName + "." + x + "." + y).getKeys(false)) {
+                                    if (!markedBlocks.containsKey(worldName)) {
+                                        markedBlocks.put(worldName, new HashMap());
+                                    }
+                                    markedBlocks.get(worldName).put(
+                                            new Loc(Integer.parseInt(x), Integer.parseInt(y), Integer.parseInt(z)),
+                                            config.getString(worldName + "." + x + "." + y + "." + z));
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void loadBlocksFromMysql() {
+        try {
+            getConnection();
+            if (connection != null) {
+                PreparedStatement stmt = connection.prepareStatement("SELECT * FROM LimitCreative WHERE `world`=?");
+                for (World world : Bukkit.getWorlds()) {
+                    stmt.setString(1, world.getName());
+                    ResultSet rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        if (!markedBlocks.containsKey(world.getName())) {
+                            markedBlocks.put(world.getName(), new HashMap<Loc, String>());
+                        }
+                        markedBlocks.get(world.getName()).put(new Loc(rs.getInt("x"), rs.getInt("y"), rs.getInt("z")),
+                                rs.getString("lore"));
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
     public static void markBlock(Block block, String msg) {
@@ -121,6 +156,26 @@ public class StorageApi {
         });
     }
 
+    public static void saveBlocksToMysql() {
+        for (String world : markedBlocks.keySet()) {
+            for (Loc loc : markedBlocks.get(world).keySet()) {
+                markBlock(world, loc, markedBlocks.get(world).get(loc));
+            }
+        }
+    }
+
+    public static void setMainPlugin(JavaPlugin plugin) {
+        mainPlugin = plugin;
+    }
+
+    public static void setMysqlDetails(String sqlUsername, String sqlPassword, String sqlHost, String sqlDatabase) {
+        useMysql = true;
+        mysqlDatabase = sqlDatabase;
+        mysqlUsername = sqlUsername;
+        mysqlHost = sqlHost;
+        mysqlPassword = sqlPassword;
+    }
+
     public static String unmarkBlock(Block block) {
         return unmarkBlock(block.getWorld().getName(), new Loc(block));
     }
@@ -162,61 +217,6 @@ public class StorageApi {
             }
         });
         return msg;
-    }
-
-    public static boolean isMarked(Block block) {
-        return markedBlocks.containsKey(block.getWorld().getName())
-                && markedBlocks.get(block.getWorld().getName()).containsKey(new Loc(block));
-    }
-
-    public static void loadBlocksFromMysql() {
-        try {
-            getConnection();
-            if (connection != null) {
-                PreparedStatement stmt = connection.prepareStatement("SELECT * FROM LimitCreative WHERE `world`=?");
-                for (World world : Bukkit.getWorlds()) {
-                    stmt.setString(1, world.getName());
-                    ResultSet rs = stmt.executeQuery();
-                    while (rs.next()) {
-                        if (!markedBlocks.containsKey(world.getName())) {
-                            markedBlocks.put(world.getName(), new HashMap<Loc, String>());
-                        }
-                        markedBlocks.get(world.getName()).put(new Loc(rs.getInt("x"), rs.getInt("y"), rs.getInt("z")),
-                                rs.getString("lore"));
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    public static void loadBlocksFromFlatfile() {
-        File file = new File(mainPlugin.getDataFolder(), "blocks.yml");
-        if (file.exists()) {
-            try {
-                YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-                for (String worldName : config.getKeys(false)) {
-                    World world = Bukkit.getWorld(worldName);
-                    if (world != null) {
-                        for (String x : config.getConfigurationSection(worldName).getKeys(false)) {
-                            for (String y : config.getConfigurationSection(worldName + "." + x).getKeys(false)) {
-                                for (String z : config.getConfigurationSection(worldName + "." + x + "." + y).getKeys(false)) {
-                                    if (!markedBlocks.containsKey(worldName)) {
-                                        markedBlocks.put(worldName, new HashMap());
-                                    }
-                                    markedBlocks.get(worldName).put(
-                                            new Loc(Integer.parseInt(x), Integer.parseInt(y), Integer.parseInt(z)),
-                                            config.getString(worldName + "." + x + "." + y + "." + z));
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
     }
 
 }

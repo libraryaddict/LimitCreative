@@ -18,27 +18,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class Creative extends JavaPlugin implements Listener {
     private InteractionListener listener;
 
-    public void onEnable() {
-        saveDefaultConfig();
-        listener = new InteractionListener(this);
-        Bukkit.getPluginManager().registerEvents(listener, this);
-        StorageApi.setMainPlugin(this);
-        if (getConfig().getBoolean("SaveBlocks")) {
-            Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-                public void run() {
-                    if (getConfig().getBoolean("UseMysql")) {
-                        StorageApi.setMysqlDetails(getConfig().getString("MysqlUsername"),
-                                getConfig().getString("MysqlPassword"), getConfig().getString("MysqlHost"), getConfig()
-                                        .getString("MysqlDatabase"));
-                        StorageApi.loadBlocksFromMysql();
-                    } else {
-                        StorageApi.loadBlocksFromFlatfile();
-                    }
-                }
-            }, 10);
-        }
-    }
-
     public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
         if (cmd.getName().equalsIgnoreCase("clearlore")) {
             if (sender.getName().equals("CONSOLE")) {
@@ -82,6 +61,27 @@ public class Creative extends JavaPlugin implements Listener {
             }
         }
         return true;
+    }
+
+    public void onEnable() {
+        saveDefaultConfig();
+        listener = new InteractionListener(this);
+        Bukkit.getPluginManager().registerEvents(listener, this);
+        StorageApi.setMainPlugin(this);
+        if (getConfig().getBoolean("SaveBlocks")) {
+            Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+                public void run() {
+                    if (getConfig().getBoolean("UseMysql")) {
+                        StorageApi.setMysqlDetails(getConfig().getString("MysqlUsername"),
+                                getConfig().getString("MysqlPassword"), getConfig().getString("MysqlHost"), getConfig()
+                                        .getString("MysqlDatabase"));
+                        StorageApi.loadBlocksFromMysql();
+                    } else {
+                        StorageApi.loadBlocksFromFlatfile();
+                    }
+                }
+            }, 10);
+        }
     }
 
 }

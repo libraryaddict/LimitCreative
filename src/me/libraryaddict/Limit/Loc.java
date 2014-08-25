@@ -16,6 +16,15 @@ public class Loc {
     }
 
     @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof Loc) {
+            Loc loc = (Loc) obj;
+            return loc.x == x && loc.y == y && loc.z == z;
+        }
+        return false;
+    }
+
+    @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
@@ -23,14 +32,5 @@ public class Loc {
         result = prime * result + y;
         result = prime * result + z;
         return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof Loc) {
-            Loc loc = (Loc) obj;
-            return loc.x == x && loc.y == y && loc.z == z;
-        }
-        return false;
     }
 }
