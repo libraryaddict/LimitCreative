@@ -47,7 +47,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class InteractionListener implements Listener {
     private final String creativeMessage;
-    private final List<String> disallowedItems;
+    private final ArrayList<Material> disallowedItems = new ArrayList<Material>();
     private final List<String> disallowedWorlds;
     private final JavaPlugin plugin;
 
@@ -55,11 +55,16 @@ public class InteractionListener implements Listener {
         this.plugin = plugin;
         creativeMessage = ChatColor.translateAlternateColorCodes('&', getConfig().getString("ItemMessage"));
         disallowedWorlds = getConfig().getStringList("WorldsDisabled");
-        disallowedItems = getConfig().getStringList("DisabledItems");
-
-        for (String item : disallowedItems) {
-            disallowedItems.remove(item);
-            disallowedItems.add(item.toUpperCase());
+        for (String disallowed : getConfig().getStringList("DisabledItems")) {
+            try {
+                disallowedItems.add(Material.valueOf(disallowed.toUpperCase()));
+            } catch (Exception ex) {
+                try {
+                    disallowedItems.add(Material.getMaterial(Integer.parseInt(disallowed)));
+                } catch (Exception e) {
+                    System.out.print("[LimitCreative] Cannot parse " + disallowed + " to a valid material");
+                }
+            }
         }
     }
 
@@ -200,7 +205,7 @@ public class InteractionListener implements Listener {
 
         event.setCursor(setCreativeItem(event.getWhoClicked().getName(), event.getCursor()));
 
-        if (disallowedItems.contains(event.getCursor().getType().toString())) {
+        if (disallowedItems.contains(event.getCursor().getType())) {
             if (!event.getWhoClicked().hasPermission("limitcreative.useblacklistitems")) {
 
                 event.setCancelled(true);
