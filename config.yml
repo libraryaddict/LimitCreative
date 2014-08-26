@@ -1,22 +1,43 @@
 # The message that appears on the item.
 # Make sure to end it with "%Name%"
 ItemMessage: '&6Spawned in creative by %Name%'
+DisabledItemsMessage: '&4You can not use this item!'
 
-# Rename the crafting result if its a spawned item
+# Rename the crafting result if its a spawned item.
 RenameCrafting: true
 
 # The following does not effect creative mode. Only non-creative
 
 # Prevent their using it to attack, defend, place, etc.
 PreventUsage: true
-# Prevent their using it to craft items
+# Prevent their using it to craft items.
 PreventCrafting: true
-# Prevent using it in a anvil
+# Prevent using it in a anvil.
 PreventAnvil: true
-# Prevent them from using the armour in survival mode
+# Prevent them from using the armour in survival mode.
 PreventArmor: true
+# Prevent creative item from dropping to hopper.
+PreventHopper: true
 # Mark blocks which are creative spawned in to drop creative spawned items.
 MarkBlocks: true
+
+# The following effect each gamemode.
+
+# Prevent creative players from pickup items from survival mode.
+PreventCreativePickup: false
+# Prevent survival players from pickup items from creative mode.
+PreventSurvivalPickup: false
+# Prevent player from putting creative item to chest etc.
+PreventPuttingNonPlayerInv: true
+# Prevent player from taking item from chest etc.
+# Remember if creative player will take item it could be marked like creative one!
+PreventTakingNonPlayerInv: true
+# Prevent creative players from dropping items.
+PreventCreativeDrop: false
+# Prevent creative players from dropping survival items.
+PreventSurvivalDrop: false
+# Prevent from using adventure mode. (Adventure mode can bypass some block and checks)
+PreventAdventureMode: true
 
 # What worlds are disabled  for this.
 # It means this plugin will ignore that world.
@@ -40,10 +61,3 @@ MysqlHost: www.mydatabase.com
 MysqlUsername: root
 MysqlPassword: ilovecows
 MysqlDatabase: database
-
-# Does the plugin prevent creative items being transfered through inventories?
-# Does it prevent creative items being dropped?
-# Does it prevent creative items being picked up by non-creative players?
-# Does it prevent non-creative items being picked up by creative?
-# Does it delete all creative items dropped?
-# Does it delete all non-creative items dropped? (Doesn't include entities such as exp orbs, fired arrows, etc. Just items)
