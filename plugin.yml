@@ -1,7 +1,7 @@
 name: LimitCreative
 main: me.libraryaddict.Limit.Creative
 author: libraryaddict
-version: 1.7.3
+version: 1.7.4
 commands:
   clearlore:
   limitcreativeconvert:

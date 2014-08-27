@@ -18,6 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class Creative extends JavaPlugin implements Listener {
     private InteractionListener listener;
 
+    @Override
     public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
         if (cmd.getName().equalsIgnoreCase("clearlore")) {
             if (sender.getName().equals("CONSOLE")) {
@@ -25,33 +26,37 @@ public class Creative extends JavaPlugin implements Listener {
                 return true;
             }
             if (sender.hasPermission("limitcreative.clearlore")) {
-                String creativeMessage = ChatColor.translateAlternateColorCodes('&', getConfig().getString("ItemMessage"))
-                        .replace("%Name%", "");
-                ItemStack item = ((Player) sender).getItemInHand();
+                final String creativeMessage = ChatColor.translateAlternateColorCodes('&',
+                        getConfig().getString("ItemMessage")).replace("%Name%", "");
+                final ItemStack item = ((Player) sender).getItemInHand();
                 if (item != null && item.getType() != Material.AIR) {
                     boolean removed = false;
                     if (item.hasItemMeta() && item.getItemMeta().hasLore()) {
-                        ItemMeta meta = item.getItemMeta();
-                        Iterator<String> itel = meta.getLore().iterator();
-                        List<String> lore = new ArrayList<String>();
+                        final ItemMeta meta = item.getItemMeta();
+                        final Iterator<String> itel = meta.getLore().iterator();
+                        final List<String> lore = new ArrayList<String>();
                         while (itel.hasNext()) {
-                            String s = itel.next();
+                            final String s = itel.next();
                             if (s.startsWith(creativeMessage)) {
                                 removed = true;
-                            } else
+                            } else {
                                 lore.add(s);
+                            }
                         }
                         meta.setLore(lore);
                         item.setItemMeta(meta);
                     }
-                    if (!removed)
+                    if (!removed) {
                         sender.sendMessage(ChatColor.RED + "Didn't find the creative message on the item!");
-                    else
+                    } else {
                         sender.sendMessage(ChatColor.RED + "Removed the creative lore from the item!");
-                } else
+                    }
+                } else {
                     sender.sendMessage(ChatColor.RED + "You are not holding a item!");
-            } else
+                }
+            } else {
                 sender.sendMessage(ChatColor.RED + "You do not have permission to use this command");
+            }
         } else if (cmd.getName().equalsIgnoreCase("limitcreativeconvert")) {
             if (sender.hasPermission("limitcreative.convert")) {
                 sender.sendMessage(ChatColor.RED + "Now converting flatfile to mysql.. You may see lag");
@@ -63,6 +68,7 @@ public class Creative extends JavaPlugin implements Listener {
         return true;
     }
 
+    @Override
     public void onEnable() {
         saveDefaultConfig();
         listener = new InteractionListener(this);
@@ -70,6 +76,7 @@ public class Creative extends JavaPlugin implements Listener {
         StorageApi.setMainPlugin(this);
         if (getConfig().getBoolean("SaveBlocks")) {
             Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+                @Override
                 public void run() {
                     if (getConfig().getBoolean("UseMysql")) {
                         StorageApi.setMysqlDetails(getConfig().getString("MysqlUsername"),
