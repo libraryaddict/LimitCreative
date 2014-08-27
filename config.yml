@@ -38,8 +38,6 @@ PreventCreativeDrop: false
 PreventSurvivalDrop: false
 # Prevent from using adventure mode. (Adventure mode can bypass some block and checks)
 PreventAdventureMode: true
-# Prevent creative ore from drop marked items.
-PreventOreDrop: true
 
 # What worlds are disabled  for this.
 # It means this plugin will ignore that world.

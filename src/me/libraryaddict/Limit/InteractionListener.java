@@ -144,16 +144,6 @@ public class InteractionListener implements Listener {
 			event.setExpToDrop(0);
 		}
 
-		if (event.getBlock().getType() == Material.EMERALD_ORE || event.getBlock().getType() == Material.DIAMOND_ORE
-				|| event.getBlock().getType() == Material.GOLD_ORE || event.getBlock().getType() == Material.IRON_ORE
-				|| event.getBlock().getType() == Material.COAL_ORE || event.getBlock().getType() == Material.REDSTONE_ORE
-				|| event.getBlock().getType() == Material.GRAVEL || event.getBlock().getType() == Material.LAPIS_ORE) {
-
-			if (getConfig().getBoolean("PreventOreDrop") && StorageApi.isMarked(event.getBlock())) {
-				event.getBlock().breakNaturally(null);
-			}
-		}
-
 		if (StorageApi.isMarked(event.getBlock())) {
 			String message = StorageApi.unmarkBlock(event.getBlock());
 			if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
